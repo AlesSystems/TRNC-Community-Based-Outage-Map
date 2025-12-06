@@ -43,7 +43,24 @@ Tek bir bildirim haritayı kırmızıya boyamaz. Backend tarafında (Postgres Fu
 3.  **Eşik Değer (Threshold):** Eğer bir kümede **>3 farklı device_id** varsa, o bölgeyi "Doğrulanmış Kesinti" olarak işaretle.
 
 ```sql
--- Örnek SQL Mantığı (AI bunu geliştirmeli)
+-- ÖNEMLİ: PostGIS extension'ı önce etkinleştirin
+CREATE EXTENSION IF NOT EXISTS postgis;
+
+-- reports tablosu
+CREATE TABLE reports (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  device_id text NOT NULL,
+  lat float NOT NULL,
+  lng float NOT NULL,
+  created_at timestamp DEFAULT now(),
+  location geography(Point) GENERATED ALWAYS AS (ST_SetSRID(ST_MakePoint(lng, lat), 4326)) STORED
+);
+
+-- Index oluştur (performans için)
+CREATE INDEX idx_reports_location ON reports USING GIST (location);
+CREATE INDEX idx_reports_created_at ON reports (created_at);
+
+-- get_verified_outages fonksiyonu (Truth Consensus algoritması)
 CREATE OR REPLACE FUNCTION get_verified_outages()
 RETURNS TABLE (lat float, lng float, intensity int) AS $$
 BEGIN
@@ -55,5 +72,6 @@ BEGIN
   FROM reports r
   WHERE r.created_at > NOW() - INTERVAL '30 minutes'
   GROUP BY ST_SnapToGrid(r.location, 0.005); -- Yaklaşık 500m gridleme
+  HAVING COUNT(DISTINCT r.device_id) > 3; -- 3'ten fazla farklı cihaz = doğrulanmış kesinti
 END;
 $$ LANGUAGE plpgsql;
