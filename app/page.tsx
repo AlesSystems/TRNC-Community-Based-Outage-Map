@@ -10,20 +10,39 @@ const Map = dynamic(() => import('@/components/Map'), {
   loading: () => <div className="flex items-center justify-center h-screen">Harita yükleniyor...</div>
 });
 
+const LegalModal = dynamic(() => import('@/components/LegalModal'), {
+  ssr: false
+});
+
+const Ticker = dynamic(() => import('@/components/Ticker'), {
+  ssr: false
+});
+
 interface Report {
   lat: number;
   lng: number;
   intensity?: number;
 }
 
+interface TickerReport {
+  lat: number;
+  lng: number;
+  created_at: string;
+}
+
 // Time window for reports in hours
 const TIME_WINDOW_HOURS = 2;
 
+// Rate limiting time in minutes
+const RATE_LIMIT_MINUTES = 10;
+
 export default function Home() {
   const [reports, setReports] = useState<Report[]>([]);
+  const [recentReports, setRecentReports] = useState<TickerReport[]>([]);
 
   useEffect(() => {
     fetchReports();
+    fetchRecentReports();
 
     // Setup realtime subscription
     const channel = supabase
@@ -49,6 +68,14 @@ export default function Home() {
               lng: newReport.lng,
               intensity: 1
             }]);
+            
+            // Update recent reports for ticker
+            setRecentReports(prev => [{
+              lat: newReport.lat,
+              lng: newReport.lng,
+              created_at: newReport.created_at
+            }, ...prev].slice(0, 5));
+            
             toast.info('Harita güncellendi - Yeni kesinti bildirimi alındı');
           }
         }
@@ -88,7 +115,42 @@ export default function Home() {
     }
   };
 
+  const fetchRecentReports = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('reports')
+        .select('lat, lng, created_at')
+        .order('created_at', { ascending: false })
+        .limit(5);
+
+      if (error) throw error;
+
+      if (data) {
+        setRecentReports(data);
+      }
+    } catch (error) {
+      console.error('Son bildirimler çekme hatası:', error);
+    }
+  };
+
   const handleReport = async () => {
+    // Rate limiting kontrolü
+    try {
+      const lastReportTime = localStorage.getItem('last_report_time');
+      if (lastReportTime) {
+        const currentTime = Date.now();
+        const timeDiff = currentTime - Number(lastReportTime);
+        const rateLimitMs = RATE_LIMIT_MINUTES * 60 * 1000;
+        
+        if (timeDiff < rateLimitMs) {
+          toast.warning('Çok hızlı gidiyorsun! Bildirimler arasında 10 dakika beklemelisin.');
+          return;
+        }
+      }
+    } catch (error) {
+      console.error('Rate limiting hatası:', error);
+    }
+
     if (!navigator.geolocation) {
       toast.error('Tarayıcınız konum özelliğini desteklemiyor');
       return;
@@ -117,6 +179,13 @@ export default function Home() {
 
           if (error) throw error;
 
+          // Başarılı bildirim sonrası zamanı kaydet
+          try {
+            localStorage.setItem('last_report_time', Date.now().toString());
+          } catch (error) {
+            console.error('localStorage hatası:', error);
+          }
+
           toast.success('Bildirim alındı! Harita güncelleniyor...');
           
           // Refresh reports
@@ -140,7 +209,26 @@ export default function Home() {
 
   return (
     <div className="relative w-full h-screen">
+      <Ticker reports={recentReports} />
       <Map reports={reports} />
+      
+      {/* Navigation Menu */}
+      <div className="fixed top-16 right-4 z-[900] flex flex-col gap-2">
+        <a
+          href="/stats"
+          className="bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-6 rounded-lg shadow-lg transition-all duration-200 text-center"
+          aria-label="İstatistikleri görüntüle"
+        >
+          📊 İstatistikler
+        </a>
+        <a
+          href="/calculator"
+          className="bg-purple-600 hover:bg-purple-700 text-white font-bold py-3 px-6 rounded-lg shadow-lg transition-all duration-200 text-center"
+          aria-label="Jeneratör hesaplayıcı"
+        >
+          ⚡️ Hesaplayıcı
+        </a>
+      </div>
       
       <button
         onClick={handleReport}
@@ -149,6 +237,8 @@ export default function Home() {
       >
         Elektrik Yok! ⚡️
       </button>
+
+      <LegalModal />
     </div>
   );
 }
