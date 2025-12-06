@@ -56,7 +56,7 @@ export default function Map({ reports }: MapProps) {
         heatLayerRef.current = L.heatLayer(heatData, {
           radius: 25,
           blur: 15,
-          maxZoom: 17,
+          maxZoom: 10,
         }).addTo(mapRef.current);
       }
     }

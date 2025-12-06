@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import dynamic from 'next/dynamic';
 import { supabase } from '@/utils/supabaseClient';
+import { toast } from 'sonner';
 
 const Map = dynamic(() => import('@/components/Map'), {
   ssr: false,
@@ -15,18 +16,60 @@ interface Report {
   intensity?: number;
 }
 
+// Time window for reports in hours
+const TIME_WINDOW_HOURS = 2;
+
 export default function Home() {
   const [reports, setReports] = useState<Report[]>([]);
 
   useEffect(() => {
     fetchReports();
+
+    // Setup realtime subscription
+    const channel = supabase
+      .channel('reports-channel')
+      .on(
+        'postgres_changes',
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'reports'
+        },
+        (payload) => {
+          const newReport = payload.new as { lat: number; lng: number; created_at: string };
+          
+          // Check if the new report is within time window
+          const reportTime = new Date(newReport.created_at).getTime();
+          const currentTime = Date.now();
+          const timeWindowMs = TIME_WINDOW_HOURS * 60 * 60 * 1000;
+          
+          if (currentTime - reportTime <= timeWindowMs) {
+            setReports(prev => [...prev, {
+              lat: newReport.lat,
+              lng: newReport.lng,
+              intensity: 1
+            }]);
+            toast.info('Harita güncellendi - Yeni kesinti bildirimi alındı');
+          }
+        }
+      )
+      .subscribe();
+
+    // Cleanup subscription on unmount
+    return () => {
+      supabase.removeChannel(channel);
+    };
   }, []);
 
   const fetchReports = async () => {
     try {
+      // Calculate time threshold (2 hours ago)
+      const timeThreshold = new Date(Date.now() - TIME_WINDOW_HOURS * 60 * 60 * 1000).toISOString();
+
       const { data, error } = await supabase
         .from('reports')
         .select('lat, lng')
+        .gte('created_at', timeThreshold)
         .order('created_at', { ascending: false })
         .limit(1000);
 
@@ -41,12 +84,13 @@ export default function Home() {
       }
     } catch (error) {
       console.error('Veri çekme hatası:', error);
+      toast.error('Harita verileri yüklenemedi');
     }
   };
 
   const handleReport = async () => {
     if (!navigator.geolocation) {
-      alert('Tarayıcınız konum özelliğini desteklemiyor.');
+      toast.error('Tarayıcınız konum özelliğini desteklemiyor');
       return;
     }
 
@@ -73,18 +117,18 @@ export default function Home() {
 
           if (error) throw error;
 
-          alert('Bildiriminiz başarıyla kaydedildi! Teşekkür ederiz.');
+          toast.success('Bildirim alındı! Harita güncelleniyor...');
           
           // Refresh reports
           fetchReports();
         } catch (error) {
           console.error('Kaydetme hatası:', error);
-          alert('Bildiriminiz kaydedilemedi. Lütfen tekrar deneyin.');
+          toast.error('Bildiriminiz kaydedilemedi. Lütfen tekrar deneyin');
         }
       },
       (error) => {
         console.error('Konum hatası:', error);
-        alert('Konumunuz alınamadı. Lütfen konum izni verin.');
+        toast.error('Konumunuz alınamadı. Lütfen konum izni verin');
       },
       {
         enableHighAccuracy: true,
