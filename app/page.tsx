@@ -48,8 +48,26 @@ const KKTC_BOUNDS = {
 export default function Home() {
   const [reports, setReports] = useState<Report[]>([]);
   const [recentReports, setRecentReports] = useState<TickerReport[]>([]);
+  const [hasReported, setHasReported] = useState(false);
 
   useEffect(() => {
+    // Check if user has reported within time window
+    const lastReportTime = localStorage.getItem('last_report_time');
+    const deviceId = localStorage.getItem('device_id');
+    
+    if (lastReportTime && deviceId) {
+      const reportTime = Number(lastReportTime);
+      const currentTime = Date.now();
+      const timeWindowMs = TIME_WINDOW_HOURS * 60 * 60 * 1000;
+      
+      if (currentTime - reportTime <= timeWindowMs) {
+        setHasReported(true);
+      } else {
+        localStorage.removeItem('last_report_time');
+        setHasReported(false);
+      }
+    }
+
     fetchReports();
     fetchRecentReports();
 
@@ -87,6 +105,18 @@ export default function Home() {
             
             toast.info('Harita güncellendi - Yeni kesinti bildirimi alındı');
           }
+        }
+      )
+      .on(
+        'postgres_changes',
+        {
+          event: 'DELETE',
+          schema: 'public',
+          table: 'reports'
+        },
+        () => {
+          fetchReports();
+          toast.info('Harita güncellendi - Kesinti giderildi');
         }
       )
       .subscribe();
@@ -199,9 +229,10 @@ export default function Home() {
 
           if (error) throw error;
 
-          // Başarılı bildirim sonrası zamanı kaydet
+          // Başarılı bildirim sonrası zamanı kaydet ve state güncelle
           try {
             localStorage.setItem('last_report_time', Date.now().toString());
+            setHasReported(true);
           } catch (error) {
             console.error('localStorage hatası:', error);
           }
@@ -213,6 +244,94 @@ export default function Home() {
         } catch (error) {
           console.error('Kaydetme hatası:', error);
           toast.error('Bildiriminiz kaydedilemedi. Lütfen tekrar deneyin');
+        }
+      },
+      (error) => {
+        console.error('Konum hatası:', error);
+        toast.error('Konumunuz alınamadı. Lütfen konum izni verin');
+      },
+      {
+        enableHighAccuracy: true,
+        timeout: 10000,
+        maximumAge: 0
+      }
+    );
+  };
+
+  const handleRestore = async () => {
+    // Rate limiting kontrolü
+    try {
+      const lastRestoreTime = localStorage.getItem('last_restore_time');
+      if (lastRestoreTime) {
+        const currentTime = Date.now();
+        const timeDiff = currentTime - Number(lastRestoreTime);
+        const rateLimitMs = RATE_LIMIT_MINUTES * 60 * 1000;
+        
+        if (timeDiff < rateLimitMs) {
+          toast.warning('Çok hızlı gidiyorsun! Bildirimler arasında 10 dakika beklemelisin.');
+          return;
+        }
+      }
+    } catch (error) {
+      console.error('Rate limiting hatası:', error);
+    }
+
+    if (!navigator.geolocation) {
+      toast.error('Tarayıcınız konum özelliğini desteklemiyor');
+      return;
+    }
+
+    navigator.geolocation.getCurrentPosition(
+      async (position) => {
+        try {
+          const { latitude, longitude } = position.coords;
+
+          // Bounding box kontrolü
+          if (
+            latitude < KKTC_BOUNDS.minLat ||
+            latitude > KKTC_BOUNDS.maxLat ||
+            longitude < KKTC_BOUNDS.minLng ||
+            longitude > KKTC_BOUNDS.maxLng
+          ) {
+            toast.error('Bu hizmet sadece KKTC sınırları içinde kullanılabilir. Konumunuz kapsama alanı dışında.');
+            return;
+          }
+
+          // Get device ID
+          const deviceId = localStorage.getItem('device_id');
+          if (!deviceId) {
+            toast.error('Bildirim bulunamadı. Önce kesinti bildirimi yapmalısınız.');
+            return;
+          }
+
+          // Calculate time threshold (2 hours ago)
+          const timeThreshold = new Date(Date.now() - TIME_WINDOW_HOURS * 60 * 60 * 1000).toISOString();
+
+          // Delete user's reports from the last 2 hours
+          const { error } = await supabase
+            .from('reports')
+            .delete()
+            .eq('device_id', deviceId)
+            .gte('created_at', timeThreshold);
+
+          if (error) throw error;
+
+          // Başarılı geri geldi bildirimi sonrası
+          try {
+            localStorage.setItem('last_restore_time', Date.now().toString());
+            localStorage.removeItem('last_report_time');
+            setHasReported(false);
+          } catch (error) {
+            console.error('localStorage hatası:', error);
+          }
+
+          toast.success('Elektrik geri geldi bildirimi alındı! Harita güncelleniyor...');
+          
+          // Refresh reports
+          fetchReports();
+        } catch (error) {
+          console.error('Silme hatası:', error);
+          toast.error('Bildiriminiz işlenemedi. Lütfen tekrar deneyin');
         }
       },
       (error) => {
@@ -272,19 +391,39 @@ export default function Home() {
       
       {/* Main Action Button (Floating) */}
       <div className="fixed bottom-8 left-1/2 transform -translate-x-1/2 z-[1000]">
-        {/* Pulse Effect Ring */}
-        <div className="absolute inset-0 bg-red-600 rounded-full animate-ping opacity-20 duration-1000"></div>
-        
-        <button
-          onClick={handleReport}
-          className="relative group bg-gradient-to-r from-red-600 to-orange-600 hover:from-red-500 hover:to-orange-500 text-white font-bold py-4 px-8 rounded-full shadow-[0_0_40px_rgba(220,38,38,0.5)] transition-all duration-300 transform hover:scale-105 active:scale-95 flex items-center gap-3 border border-red-400/30"
-          aria-label="Elektrik kesintisi bildir"
-        >
-          <div className="bg-white/20 p-2 rounded-full backdrop-blur-sm">
-            <Zap className="w-6 h-6 text-white fill-white" />
-          </div>
-          <span className="text-lg tracking-wide text-shadow-sm">Elektrik Yok!</span>
-        </button>
+        {hasReported ? (
+          <>
+            {/* Pulse Effect Ring - Green */}
+            <div className="absolute inset-0 bg-green-600 rounded-full animate-ping opacity-20 duration-1000"></div>
+            
+            <button
+              onClick={handleRestore}
+              className="relative group bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-500 hover:to-emerald-500 text-white font-bold py-4 px-8 rounded-full shadow-[0_0_40px_rgba(34,197,94,0.5)] transition-all duration-300 transform hover:scale-105 active:scale-95 flex items-center gap-3 border border-green-400/30"
+              aria-label="Elektrik geri geldi bildir"
+            >
+              <div className="bg-white/20 p-2 rounded-full backdrop-blur-sm">
+                <Zap className="w-6 h-6 text-white fill-white" />
+              </div>
+              <span className="text-lg tracking-wide text-shadow-sm">Elektrik Geldi 💡</span>
+            </button>
+          </>
+        ) : (
+          <>
+            {/* Pulse Effect Ring - Red */}
+            <div className="absolute inset-0 bg-red-600 rounded-full animate-ping opacity-20 duration-1000"></div>
+            
+            <button
+              onClick={handleReport}
+              className="relative group bg-gradient-to-r from-red-600 to-orange-600 hover:from-red-500 hover:to-orange-500 text-white font-bold py-4 px-8 rounded-full shadow-[0_0_40px_rgba(220,38,38,0.5)] transition-all duration-300 transform hover:scale-105 active:scale-95 flex items-center gap-3 border border-red-400/30"
+              aria-label="Elektrik kesintisi bildir"
+            >
+              <div className="bg-white/20 p-2 rounded-full backdrop-blur-sm">
+                <Zap className="w-6 h-6 text-white fill-white" />
+              </div>
+              <span className="text-lg tracking-wide text-shadow-sm">Elektrik Yok ⚡️</span>
+            </button>
+          </>
+        )}
       </div>
 
       <LegalModal />
