@@ -7,12 +7,12 @@
   "theme_color": "#ef4444",
   "icons": [
     {
-      "src": "/icon.png",
+      "src": "/logo_elek.png",
       "sizes": "192x192",
       "type": "image/png"
     },
     {
-      "src": "/icon.png",
+      "src": "/logo_elek.png",
       "sizes": "512x512",
       "type": "image/png"
     }

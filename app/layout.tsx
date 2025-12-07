@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import { Toaster } from "sonner";
+import { Analytics } from "@vercel/analytics/react";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -14,8 +15,9 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "KKTC Kesinti Haritası | TRNC Outage Map",
-  description: "Topluluk tabanlı elektrik kesintisi haritası - Community-based power outage map for Northern Cyprus",
+  metadataBase: new URL('https://trnc-outage-map.vercel.app'),
+  title: "Kıbrıs Elektrik Kesinti Haritası ⚡️",
+  description: "Mahallende elektrik mi kesildi? Haritadan kontrol et, jeneratör ihtiyacını hesapla. KKTC'nin ilk topluluk tabanlı kesinti takip sistemi.",
   manifest: "/manifest.json",
   appleWebApp: {
     capable: true,
@@ -23,8 +25,12 @@ export const metadata: Metadata = {
     title: "Kesinti Yok",
   },
   icons: {
-    icon: "/icon.png",
-    apple: "/apple-touch-icon.png",
+    apple: "/logo_elek.png",
+  },
+  openGraph: {
+    title: "Elektrik mi Kesildi? Haritaya Bak!",
+    description: "Anlık kesinti bildirimleri ve jeneratör hesaplayıcı.",
+    images: ['/og-image.png'],
   },
 };
 
@@ -48,6 +54,7 @@ export default function RootLayout({
       >
         {children}
         <Toaster position="bottom-right" richColors />
+        <Analytics />
       </body>
     </html>
   );
