@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import dynamic from 'next/dynamic';
 import { supabase } from '@/utils/supabaseClient';
 import { toast } from 'sonner';
+import { Zap, BarChart3, HelpCircle, Calculator } from 'lucide-react';
 
 const Map = dynamic(() => import('@/components/Map'), {
   ssr: false,
@@ -212,38 +213,60 @@ export default function Home() {
       <Ticker reports={recentReports} />
       <Map reports={reports} />
       
-      {/* Navigation Menu */}
-      <div className="fixed top-16 right-4 z-[900] flex flex-col gap-2">
-        <a
-          href="/guide"
-          className="bg-green-600 hover:bg-green-700 text-white font-bold py-3 px-6 rounded-lg shadow-lg transition-all duration-200 text-center"
-          aria-label="Nasıl kullanılır kılavuzu"
-        >
-          ❓ Nasıl Kullanılır?
-        </a>
-        <a
-          href="/stats"
-          className="bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-6 rounded-lg shadow-lg transition-all duration-200 text-center"
-          aria-label="İstatistikleri görüntüle"
-        >
-          📊 İstatistikler
-        </a>
-        <a
-          href="/calculator"
-          className="bg-purple-600 hover:bg-purple-700 text-white font-bold py-3 px-6 rounded-lg shadow-lg transition-all duration-200 text-center"
-          aria-label="Jeneratör hesaplayıcı"
-        >
-          ⚡️ Hesaplayıcı
-        </a>
+      {/* Modern Navigation Dock */}
+      <div className="fixed top-20 right-4 z-[900] flex flex-col gap-3">
+        <div className="glass p-2 rounded-2xl flex flex-col gap-2 shadow-2xl bg-black/20">
+          <a
+            href="/guide"
+            className="group flex items-center justify-center w-12 h-12 rounded-xl bg-white/5 hover:bg-white/10 transition-all duration-200 relative"
+            aria-label="Nasıl kullanılır kılavuzu"
+          >
+            <HelpCircle className="w-6 h-6 text-blue-400" />
+            <span className="absolute right-full mr-3 px-2 py-1 bg-black/80 text-white text-xs rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none backdrop-blur-sm">
+              Nasıl Kullanılır?
+            </span>
+          </a>
+          
+          <a
+            href="/stats"
+            className="group flex items-center justify-center w-12 h-12 rounded-xl bg-white/5 hover:bg-white/10 transition-all duration-200 relative"
+            aria-label="İstatistikleri görüntüle"
+          >
+            <BarChart3 className="w-6 h-6 text-green-400" />
+            <span className="absolute right-full mr-3 px-2 py-1 bg-black/80 text-white text-xs rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none backdrop-blur-sm">
+              İstatistikler
+            </span>
+          </a>
+          
+          <a
+            href="/calculator"
+            className="group flex items-center justify-center w-12 h-12 rounded-xl bg-white/5 hover:bg-white/10 transition-all duration-200 relative"
+            aria-label="Jeneratör hesaplayıcı"
+          >
+            <Calculator className="w-6 h-6 text-purple-400" />
+            <span className="absolute right-full mr-3 px-2 py-1 bg-black/80 text-white text-xs rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none backdrop-blur-sm">
+              Hesaplayıcı
+            </span>
+          </a>
+        </div>
       </div>
       
-      <button
-        onClick={handleReport}
-        className="fixed bottom-8 left-1/2 transform -translate-x-1/2 bg-red-600 hover:bg-red-700 text-white font-bold py-4 px-8 rounded-full shadow-lg transition-all duration-200 text-lg z-[1000] flex items-center gap-2"
-        aria-label="Elektrik kesintisi bildir"
-      >
-        Elektrik Yok! ⚡️
-      </button>
+      {/* Main Action Button (Floating) */}
+      <div className="fixed bottom-8 left-1/2 transform -translate-x-1/2 z-[1000]">
+        {/* Pulse Effect Ring */}
+        <div className="absolute inset-0 bg-red-600 rounded-full animate-ping opacity-20 duration-1000"></div>
+        
+        <button
+          onClick={handleReport}
+          className="relative group bg-gradient-to-r from-red-600 to-orange-600 hover:from-red-500 hover:to-orange-500 text-white font-bold py-4 px-8 rounded-full shadow-[0_0_40px_rgba(220,38,38,0.5)] transition-all duration-300 transform hover:scale-105 active:scale-95 flex items-center gap-3 border border-red-400/30"
+          aria-label="Elektrik kesintisi bildir"
+        >
+          <div className="bg-white/20 p-2 rounded-full backdrop-blur-sm">
+            <Zap className="w-6 h-6 text-white fill-white" />
+          </div>
+          <span className="text-lg tracking-wide text-shadow-sm">Elektrik Yok!</span>
+        </button>
+      </div>
 
       <LegalModal />
     </div>
