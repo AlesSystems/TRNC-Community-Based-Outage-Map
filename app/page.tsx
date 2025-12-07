@@ -215,6 +215,13 @@ export default function Home() {
       {/* Navigation Menu */}
       <div className="fixed top-16 right-4 z-[900] flex flex-col gap-2">
         <a
+          href="/guide"
+          className="bg-green-600 hover:bg-green-700 text-white font-bold py-3 px-6 rounded-lg shadow-lg transition-all duration-200 text-center"
+          aria-label="Nasıl kullanılır kılavuzu"
+        >
+          ❓ Nasıl Kullanılır?
+        </a>
+        <a
           href="/stats"
           className="bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-6 rounded-lg shadow-lg transition-all duration-200 text-center"
           aria-label="İstatistikleri görüntüle"
