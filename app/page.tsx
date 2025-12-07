@@ -37,6 +37,14 @@ const TIME_WINDOW_HOURS = 2;
 // Rate limiting time in minutes
 const RATE_LIMIT_MINUTES = 10;
 
+// KKTC Geographic Boundaries
+const KKTC_BOUNDS = {
+  minLat: 34.9,  // Güney ucu
+  maxLat: 35.8,  // Kuzey ucu
+  minLng: 32.2,  // Batı ucu (Güzelyurt tarafı)
+  maxLng: 34.7   // Doğu ucu (Karpaz tarafı)
+};
+
 export default function Home() {
   const [reports, setReports] = useState<Report[]>([]);
   const [recentReports, setRecentReports] = useState<TickerReport[]>([]);
@@ -161,6 +169,17 @@ export default function Home() {
       async (position) => {
         try {
           const { latitude, longitude } = position.coords;
+
+          // Bounding box kontrolü
+          if (
+            latitude < KKTC_BOUNDS.minLat ||
+            latitude > KKTC_BOUNDS.maxLat ||
+            longitude < KKTC_BOUNDS.minLng ||
+            longitude > KKTC_BOUNDS.maxLng
+          ) {
+            toast.error('Bu hizmet sadece KKTC sınırları içinde kullanılabilir. Konumunuz kapsama alanı dışında.');
+            return;
+          }
 
           // Get or create device ID
           let deviceId = localStorage.getItem('device_id');
