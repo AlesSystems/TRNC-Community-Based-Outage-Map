@@ -100,7 +100,7 @@ export default function GuidePage() {
                   <ol className="space-y-4 text-sm text-neutral-300">
                     <li className="flex gap-3">
                       <span className="flex-shrink-0 w-6 h-6 bg-white/10 rounded-full flex items-center justify-center text-xs">1</span>
-                      <span>Safari'de <span className="text-white font-medium">Paylaş</span> butonuna tıkla <Share2 className="inline w-4 h-4 mx-1" /></span>
+                      <span>Safari&apos;de <span className="text-white font-medium">Paylaş</span> butonuna tıkla <Share2 className="inline w-4 h-4 mx-1" /></span>
                     </li>
                     <li className="flex gap-3">
                       <span className="flex-shrink-0 w-6 h-6 bg-white/10 rounded-full flex items-center justify-center text-xs">2</span>
